@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+
+# Test database
+*.db
+*.db-wal
+*.db-shm
+
+# Prisma generated (regenerated via `prisma generate`)
+# Keep prisma/schema.prisma but ignore generated client artifacts
+# node_modules/@prisma is already covered above
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Coverage
+coverage/

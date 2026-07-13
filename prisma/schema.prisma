@@ -1,0 +1,94 @@
+// StellarKraal Prisma Schema
+// SQLite database for off-chain livestock collateral and loan indexing
+//
+// NOTE: SQLite does not support native Prisma enums.
+// Role, VerificationStatus, and LoanStatus are stored as String
+// and validated at the application layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+
+model User {
+  id          String   @id @default(cuid())
+  publicKey   String   @unique           // Stellar G... address
+  /// Role: FARMER | INVESTOR | ADMIN
+  role        String   @default("FARMER")
+  displayName String?
+  email       String?
+  phone       String?
+  country     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  livestock Livestock[]
+  loans     Loan[]
+
+  @@index([publicKey])
+}
+
+// ─── Livestock ───────────────────────────────────────────────────────────────
+
+model Livestock {
+  id               String  @id @default(cuid())
+  animalId         String  @unique   // farmer-assigned tag / earmark
+  ownerId          String
+  owner            User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Core metadata stored as JSON string
+  // Shape: { type, breed, weightKg, ageMonths, healthStatus, imageUrl, location }
+  metadata         String  // JSON
+
+  appraisedValueUSDC Float?
+  appraisalTxHash    String?          // Soroban tx that recorded the appraisal
+  /// VerificationStatus: PENDING | APPRAISED | VERIFIED | REJECTED
+  verificationStatus String @default("PENDING")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  loans Loan[]
+
+  @@index([ownerId])
+  @@index([verificationStatus])
+}
+
+// ─── Loan ────────────────────────────────────────────────────────────────────
+
+model Loan {
+  id               String    @id @default(cuid())
+  contractLoanId   String    @unique   // on-chain loan ID from Soroban
+  borrowerId       String
+  borrower         User      @relation(fields: [borrowerId], references: [id])
+  livestockId      String
+  livestock        Livestock @relation(fields: [livestockId], references: [id])
+
+  principalUSDC    Float
+  interestRateBps  Int        // basis points, e.g. 500 = 5 %
+  durationDays     Int
+  /// LoanStatus: ACTIVE | REPAID | LIQUIDATED | DEFAULTED
+  status           String    @default("ACTIVE")
+
+  // Timestamps from on-chain events
+  createdOnChainAt DateTime?
+  repaidAt         DateTime?
+  liquidatedAt     DateTime?
+
+  // Sync metadata
+  lastSyncedAt     DateTime?
+  lastEventLedger  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([borrowerId])
+  @@index([status])
+  @@index([contractLoanId])
+}
